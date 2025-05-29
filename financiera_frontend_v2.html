@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financiera Ancestral - A Century of Market Favorites</title>
+    <meta name="description" content="Explore a century of stock market performance across global markets with interactive visualizations">
+    <meta name="author" content="Financiera Ancestral">
+    
+    <!-- Security headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" 
+            integrity="sha512-M7nHCiNUOwFt6Us3r8alutZLm9qMt4s9951uo8jqO4KzFTjNF7Ko8+gp6cH4F1Lz+WM4TtlUWfKDCYRc2LHiuQ==" 
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+    // Patch: Connect to Flask backend API for dynamic data
+    async function fetchMarketData(decade = '', market = '') {
+        let url = `http://127.0.0.1:5000/api/market-data?`;
+        if (decade) url += `decade=${encodeURIComponent(decade)}&`;
+        if (market) url += `market=${encodeURIComponent(market)}&`;
+        url = url.replace(/&$/, '');
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('API error: ' + res.status);
+            return await res.json();
+        } catch (e) {
+            console.error('Failed to fetch market data', e);
+            return null;
+        }
+    }
+    async function fetchStockData(symbol = '', decade = '', market = '') {
+        let url = `http://127.0.0.1:5000/api/stock-data?`;
+        if (symbol) url += `symbol=${encodeURIComponent(symbol)}&`;
+        if (decade) url += `decade=${encodeURIComponent(decade)}&`;
+        if (market) url += `market=${encodeURIComponent(market)}&`;
+        url = url.replace(/&$/, '');
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('API error: ' + res.status);
+            return await res.json();
+        } catch (e) {
+            console.error('Failed to fetch stock data', e);
+            return null;
+        }
+    }
+    window.FinancieraAPI = { fetchMarketData, fetchStockData };
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Crimson+Text:wght@400;600&display=swap');
+        
+        :root {
+            --primary-gold: #daa520;
+            --dark-gold: #b8941c;
+            --light-gold: rgba(218, 165, 32, 0.1);
+            --dark-bg: #2d2d2d;
+            --light-bg: #f4f1e8;
+            --paper-bg: #e8e0d0;
+            --text-dark: #3a3a3a;
+            --text-light: #f4f1e8;
+            --border-color: #8b7e66;
+            --shadow-light: rgba(0,0,0,0.1);
+            --shadow-medium: rgba(0,0,0,0.2);
+            --shadow-dark: rgba(0,0,0,0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Crimson Text', serif;
+            background: linear-gradient(45deg, var(--light-bg), var(--paper-bg));
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(139, 126, 102, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(160, 140, 115, 0.1) 0%, transparent 50%);
+            min-height: 100vh;
+            color: var(--text-dark);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        .newspaper-texture {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.03;
+            background-image: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0,0,0,0.1) 2px,
+                    rgba(0,0,0,0.1) 4px
+                );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 6px;
+            background: var(--dark-bg);
+            color: var(--text-light);
+            padding: 8px;
+            text-decoration: none;
+            z-index: 1000;
+            border-radius: 4px;
+        }
+
+        .skip-link:focus {
+            top: 6px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, var(--dark-bg), #1a1a1a);
+            color: var(--text-light);
+            box-shadow: 0 8px 32px var(--shadow-dark);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--light-gold) 0%, transparent 70%);
+            animation: shimmer 8s ease-in-out infinite;
+            will-change: transform;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(180deg); }
+        }
+
+        .main-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 900;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            letter-spacing: 2px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .subtitle {
+            font-size: clamp(1rem, 2vw, 1.3rem);
+            font-style: italic;
+            opacity: 0.9;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .ornament {
+            width: 100px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-gold), transparent);
+            margin: 20px auto;
+            position: relative;
+        }
+
+        .ornament::before,
+        .ornament::after {
+            content: '◆';
+            position: absolute;
+            top: -8px;
+            color: var(--primary-gold);
+            font-size: 16px;
+        }
+
+        .ornament::before { left: -15px; }
+        .ornament::after { right: -15px; }
+
+        .controls {
+            background: rgba(244, 241, 232, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid var(--border-color);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px auto;
+            max-width: 1200px;
+            box-shadow: 0 15px 40px var(--shadow-medium);
+        }
+
+        .decade-selector {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .decade-btn {
+            background: linear-gradient(135deg, var(--border-color), #6d5f4a);
+            color: var(--text-light);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-family: 'Playfair Display', serif;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px var(--shadow-medium);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            outline: none;
+            position: relative;
+        }
+
+        .decade-btn:hover,
+        .decade-btn:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--shadow-dark);
+            background: linear-gradient(135deg, #a08c70, var(--border-color));
+        }
+
+        .decade-btn:focus {
+            outline: 2px solid var(--primary-gold);
+            outline-offset: 2px;
+        }
+
+        .decade-btn.active {
+            background: linear-gradient(135deg, var(--primary-gold), var(--dark-gold));
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 8px 30px rgba(218, 165, 32, 0.4);
+        }
+
+        .decade-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .context-panel {
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid var(--primary-gold);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            backdrop-filter: blur(5px);
+            box-shadow: inset 0 2px 10px var(--shadow-light);
+        }
+
+        .context-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--dark-bg);
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .context-description {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .context-events {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+        }
+
+        .event-tag {
+            background: var(--light-gold);
+            border: 1px solid var(--primary-gold);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .context-quote {
+            font-style: italic;
+            font-size: 1.1rem;
+            text-align: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: var(--light-gold);
+            border-left: 4px solid var(--primary-gold);
+            border-radius: 0 8px 8px 0;
+        }
+
+        .heatmap-container {
+            background: rgba(255, 255, 255, 0.9);
+            border: 3px solid var(--border-color);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px auto;
+            max-width: 1400px;
+            min-height: 600px;
+            box-shadow: 0 20px 60px var(--shadow-dark);
+            backdrop-filter: blur(10px);
+        }
+
+        .heatmap-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--dark-bg);
+        }
+
+        .legend {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(244, 241, 232, 0.8);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #666;
+            flex-shrink: 0;
+        }
+
+        .market-grid {
+            display: grid;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .market-section {
+            background: rgba(255, 255, 255, 0.7);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 25px var(--shadow-light);
+        }
+
+        .market-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--dark-bg);
+            border-bottom: 2px solid var(--primary-gold);
+            padding-bottom: 10px;
+        }
+
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .stock-cell {
+            aspect-ratio: 1;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stock-cell:hover,
+        .stock-cell:focus {
+            border-color: var(--primary-gold);
+            border-width: 3px;
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 8px 25px var(--shadow-dark);
+        }
+
+        .stock-cell:focus {
+            outline: 2px solid var(--primary-gold);
+            outline-offset: 2px;
+        }
+
+        .stock-symbol {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .stock-return {
+            font-size: 0.7rem;
+            opacity: 0.9;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(20, 20, 20, 0.95);
+            color: var(--text-light);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 2px solid var(--primary-gold);
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            max-width: 300px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .tooltip-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--primary-gold);
+        }
+
+        .tooltip-content {
+            line-height: 1.4;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2rem;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #ddd;
+            border-top: 3px solid var(--primary-gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fee;
+            border: 2px solid #d00;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #900;
+            text-align: center;
+        }
+
+        .success-message {
+            background: #efe;
+            border: 2px solid #0a0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #060;
+            text-align: center;
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-gold);
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-dark);
+            opacity: 0.8;
+        }
+
+        .accessibility-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .accessibility-btn {
+            background: var(--dark-bg);
+            color: var(--text-light);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .accessibility-btn:hover,
+        .accessibility-btn:focus {
+            background: var(--primary-gold);
+            outline: 2px solid var(--primary-gold);
+        }
+
+        /* High contrast mode */
+        .high-contrast {
+            filter: contrast(150%) brightness(1.2);
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Dark mode */
+        .dark-mode {
+            --light-bg: #2a2a2a;
+            --paper-bg: #1a1a1a;
+            --text-dark: #e0e0e0;
+            color: var(--text-dark);
+        }
+
+        .dark-mode .controls,
+        .dark-mode .heatmap-container,
+        .dark-mode .market-section {
+            background: rgba(40, 40, 40, 0.9);
+            color: var(--text-dark);
+        }
+
+        .dark-mode .context-panel {
+            background: rgba(60, 60, 60, 0.8);
+            color: var(--text-dark);
+        }
+
+        @media (max-width: 768px) {
+            .decade-selector {
+                gap: 8px;
+            }
+            
+            .decade-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            
+            .controls, .heatmap-container {
+                margin: 20px 10px;
+                padding: 20px;
+            }
+            
+            .legend {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .stock-grid {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+                gap: 4px;
+            }
+            
+            .stock-cell {
+                font-size: 0.7rem;
+            }
+            
+            .accessibility-controls {
+                position: static;
+                justify-content: center;
+                margin: 20px 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-title {
+                font-size: 2rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            .stock-grid {
+                grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <div class="newspaper-texture"></div>
+    
+    <div class="accessibility-controls" role="group" aria-label="Accessibility controls">
+        <button class="accessibility-btn" id="contrastBtn" aria-label="Toggle high contrast">High Contrast</button>
+        <button class="accessibility-btn" id="darkModeBtn" aria-label="Toggle dark mode">Dark Mode</button>
+        <button class="accessibility-btn" id="fontSizeBtn" aria-label="Increase font size">A+</button>
+    </div>
+    
+    <header class="header" role="banner">
+        <h1 class="main-title">Financiera Ancestral</h1>
+        <p class="subtitle">A Century of Market Favorites • From Newspaper Archives to Digital Analytics</p>
+        <div class="ornament" aria-hidden="true"></div>
+    </header>
+
+    <main id="main-content" class="controls" role="main">
+        <div class="decade-selector" id="decadeSelector" role="group" aria-label="Select decade to view">
+            <!-- Decade buttons will be populated by JavaScript -->
+        </div>
+        
+        <div class="context-panel" id="contextPanel" role="region" aria-label="Historical context">
+            <div class="loading">Loading historical context...</div>
+        </div>
+        
+        <div class="stats-panel" id="statsPanel" style="display: none;" role="region" aria-label="Statistics summary">
+            <!-- Statistics will be populated by JavaScript -->
+        </div>
+    </main>
+
+    <section class="heatmap-container" role="region" aria-label="Stock performance visualization">
+        <h2 class="heatmap-title">Market Performance Visualization</h2>
+        
+        <div class="legend" role="img" aria-label="Performance color legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #1a5490;" aria-hidden="true"></div>
+                <span>Poor Performance (&lt; 0%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #4a90e2;" aria-hidden="true"></div>
+                <span>Modest Returns (0-20%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #7fb069;" aria-hidden="true"></div>
+                <span>Good Returns (20-50%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #daa520;" aria-hidden="true"></div>
+                <span>Excellent Returns (50-100%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #d73502;" aria-hidden="true"></div>
+                <span>Outstanding Returns (&gt; 100%)</span>
+            </div>
+        </div>
+        
+        <div id="heatmap" role="img" aria-label="Stock performance heatmap">
+            <div class="loading">Preparing your journey through financial history...</div>
+        </div>
+    </section>
+
+    <div class="tooltip" id="tooltip" role="tooltip" aria-hidden="true"></div>
+
+    <script>
+        class FinancieraAncestral {
+            constructor() {
+                this.data = null;
+                this.currentDecade = '2010s';
+                this.tooltip = document.getElementById('tooltip');
+                this.isLoading = false;
+                this.retryCount = 0;
+                this.maxRetries = 3;
+                
+                // Accessibility settings
+                this.fontSize = 1;
+                this.highContrast = false;
+                this.darkMode = false;
+                
+                this.init();
+            }
+
+            async init() {
+                try {
+                    this.setupAccessibilityControls();
+                    this.loadUserPreferences();
+                    await this.loadData();
+                    this.setupDecadeSelector();
+                    this.setupKeyboardNavigation();
+                    this.renderVisualization();
+                } catch (error) {
+                    this.showError('Failed to initialize application: ' + error.message);
+                }
+            }
+
+            // Populate decade selector and set up event listeners
+            async setupDecadeSelector() {
+                const selector = document.getElementById('decadeSelector');
+                if (!selector) return;
+                selector.innerHTML = '<div class="loading">Loading decades...</div>';
+                try {
+                    // Fetch list of decades from API
+                    const res = await fetch('http://127.0.0.1:5000/api/data/decades');
+                    if (!res.ok) throw new Error('Failed to fetch decades');
+                    const data = await res.json();
+                    if (!data.decades || !Array.isArray(data.decades)) throw new Error('Invalid response');
+                    selector.innerHTML = '';
+                    data.decades.forEach(decade => {
+                        const btn = document.createElement('button');
+                        btn.className = 'decade-btn' + (decade === this.currentDecade ? ' active' : '');
+                        btn.textContent = decade;
+                        btn.setAttribute('aria-pressed', decade === this.currentDecade ? 'true' : 'false');
+                        btn.addEventListener('click', async () => {
+                            if (decade === this.currentDecade) return;
+                            this.currentDecade = decade;
+                            // Update button states
+                            Array.from(selector.children).forEach(child => {
+                                child.classList.remove('active');
+                                child.setAttribute('aria-pressed', 'false');
+                            });
+                            btn.classList.add('active');
+                            btn.setAttribute('aria-pressed', 'true');
+                            // Fetch and update data
+                            await this.loadData();
+                            this.renderVisualization();
+                        });
+                        selector.appendChild(btn);
+                    });
+                } catch (e) {
+                    selector.innerHTML = '<div class="error">Failed to load decades</div>';
+                }
+            }
+
+            setupAccessibilityControls() {
+                const contrastBtn = document.getElementById('contrastBtn');
+                const darkModeBtn = document.getElementById('darkModeBtn');
+                const fontSizeBtn = document.getElementById('fontSizeBtn');
+
+                contrastBtn.addEventListener('click', () => this.toggleHighContrast());
+                darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
+                fontSizeBtn.addEventListener('click', () => this.increaseFontSize());
+            }
+
+            toggleHighContrast() {
+                this.highContrast = !this.highContrast;
+                document.body.classList.toggle('high-contrast', this.highContrast);
+                this.saveUserPreferences();
+            }
+
+            toggleDarkMode() {
+                this.darkMode = !this.darkMode;
+                document.body.classList.toggle('dark-mode', this.darkMode);
+                this.saveUserPreferences();
+            }
+
+            increaseFontSize() {
+                this.fontSize = Math.min(this.fontSize + 0.1, 1.5);
+                document.documentElement.style.fontSize = this.fontSize + 'rem';
+                this.saveUserPreferences();
+            }
+
+            loadUserPreferences() {
+                try {
+                    const prefs = JSON.parse(localStorage.getItem('financiera-preferences') || '{}');
+                    
+                    if (prefs.fontSize) {
+                        this.fontSize = prefs.fontSize;
+                        document.documentElement.style.fontSize = this.fontSize + 'rem';
+                    }
+                    
+                    if (prefs.highContrast) {
+                        this.highContrast = true;
+                        document.body.classList.add('high-contrast');
+                    }
+                    
+                } catch (e) {
+                    // Ignore errors
+                }
+            }
+
+            // Fetch dynamic data from API and update visualization
+            async loadData() {
+                try {
+                    this.isLoading = true;
+                    document.querySelector('#heatmap .loading').style.display = 'block';
+                    // Fetch market data for the current decade
+                    const marketData = await fetchMarketData(this.currentDecade);
+                    if (!marketData) throw new Error('No market data received');
+                    this.data = marketData;
+                    // Optionally, fetch stock data for a selected symbol/market if needed
+                    // const stockData = await fetchStockData(symbol, this.currentDecade, market);
+                    // this.stockData = stockData;
+                } catch (error) {
+                    this.showError('Failed to load data: ' + error.message);
+                    this.data = null;
+                } finally {
+                    this.isLoading = false;
+                    const loadingElem = document.querySelector('#heatmap .loading');
+                    if (loadingElem) loadingElem.style.display = 'none';
+                }
+            }
+            

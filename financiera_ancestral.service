@@ -1,0 +1,12 @@
+[Unit]
+Description=Financiera Ancestral API Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/Users/josevergara/Documents/financiera-ancestral
+ExecStart=/Library/Developer/CommandLineTools/usr/bin/python3 /Users/josevergara/Documents/financiera-ancestral/api_server.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

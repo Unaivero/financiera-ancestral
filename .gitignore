@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# SQLite
+*.db
+
+# Logs
+*.log
+logs/
+
+# Data and backups
+data/
+backups/
+cache/
+
+# System
+.DS_Store
+.env
